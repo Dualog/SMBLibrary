@@ -56,6 +56,20 @@ namespace SMBLibrary.Client
         {
         }
 
+        public async Task<bool> ConnectAsync(string server, SMBTransportType transport, CancellationToken cancellationToken)
+        {
+            if (IPAddress.TryParse(server, out var ipAddress) == false)
+            {
+                var ips = await Dns.GetHostEntryAsync(server);
+                ipAddress = ips.AddressList.FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+
+                if (ipAddress is null)
+                    throw new Exception("Unable to resolve address for host");
+            }
+
+            return await ConnectAsync(ipAddress, transport, cancellationToken);
+        }
+
         public async Task<bool> ConnectAsync(IPAddress serverAddress, SMBTransportType transport, CancellationToken cancellationToken)
         {
             m_transport = transport;
