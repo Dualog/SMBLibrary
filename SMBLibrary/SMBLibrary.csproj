@@ -10,7 +10,6 @@
     <Description>Free, Open Source, User-Mode SMB 1.0/CIFS, SMB 2.0 and SMB 2.1 Client Library</Description>
     <RepositoryUrl>https://github.com/Dualog/SMBLibrary</RepositoryUrl>
     <Version>1.0.0.0</Version>
-    <TargetFrameworks>net20;net40;netstandard2.0</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AssemblyName>SMBLibrary</AssemblyName>
     <Version>1.4.6</Version>

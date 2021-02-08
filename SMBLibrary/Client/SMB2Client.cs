@@ -541,10 +541,10 @@ namespace SMBLibrary.Client
 
         internal async Task TrySendCommandAsync(SMB2Command request, CancellationToken cancellationToken)
         {
-            TrySendCommand(request, m_encryptSessionData);
+            await TrySendCommandAsync(request, m_encryptSessionData, cancellationToken);
         }
 
-        internal void TrySendCommand(SMB2Command request, bool encryptData)
+        internal async Task TrySendCommandAsync(SMB2Command request, bool encryptData, CancellationToken cancellationToken)
         {
             if (m_dialect == SMB2Dialect.SMB202 || m_transport == SMBTransportType.NetBiosOverTCP)
             {
@@ -637,7 +637,7 @@ namespace SMBLibrary.Client
                 packet.Trailer = request.GetBytes();
             }
 
-            TrySendPacketAsync(socket, packet, cancellationToken);
+            return TrySendPacketAsync(socket, packet, cancellationToken);
         }
 
         public static async Task TrySendPacketAsync(Socket socket, SessionPacket packet, CancellationToken cancellationToken = default)

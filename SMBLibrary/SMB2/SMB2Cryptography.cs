@@ -97,14 +97,14 @@ namespace SMBLibrary.SMB2
         {
             SMB2TransformHeader transformHeader = CreateTransformHeader(nonce, message.Length, sessionID);
             byte[] associatedata = transformHeader.GetAssociatedData();
-            return AesCcm.Encrypt(key, nonce, message, associatedata, SMB2TransformHeader.SignatureLength, out signature);
+            return Utilities.AesCcm.Encrypt(key, nonce, message, associatedata, SMB2TransformHeader.SignatureLength, out signature);
         }
 
         public static byte[] DecryptMessage(byte[] key, SMB2TransformHeader transformHeader, byte[] encryptedMessage)
         {
             byte[] associatedData = transformHeader.GetAssociatedData();
             byte[] aesCcmNonce = ByteReader.ReadBytes(transformHeader.Nonce, 0, AesCcmNonceLength);
-            return AesCcm.DecryptAndAuthenticate(key, aesCcmNonce, encryptedMessage, associatedData, transformHeader.Signature);
+            return Utilities.AesCcm.DecryptAndAuthenticate(key, aesCcmNonce, encryptedMessage, associatedData, transformHeader.Signature);
         }
 
         private static SMB2TransformHeader CreateTransformHeader(byte[] nonce, int originalMessageLength, ulong sessionID)
