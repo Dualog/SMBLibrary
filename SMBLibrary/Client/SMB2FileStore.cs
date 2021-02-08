@@ -20,11 +20,13 @@ namespace SMBLibrary.Client
 
         private SMB2Client m_client;
         private uint m_treeID;
+        private bool m_encryptShareData;
 
-        public SMB2FileStore(SMB2Client client, uint treeID)
+        public SMB2FileStore(SMB2Client client, uint treeID, bool encryptShareData)
         {
             m_client = client;
             m_treeID = treeID;
+            m_encryptShareData = encryptShareData;
         }
 
         public async Task<(NTStatus status, object handle, FileStatus fileStatus)> CreateFile(string path, AccessMask desiredAccess, FileAttributes fileAttributes, ShareAccess shareAccess, CreateDisposition createDisposition, CreateOptions createOptions, SecurityContext securityContext, CancellationToken cancellationToken)
@@ -325,7 +327,7 @@ namespace SMBLibrary.Client
         private Task TrySendCommandAsync(SMB2Command request, CancellationToken cancellationToken)
         {
             request.Header.TreeID = m_treeID;
-            return m_client.TrySendCommandAsync(request, cancellationToken);
+            return m_client.TrySendCommandAsync(request, m_encryptShareData, cancellationToken);
         }
 
         public uint MaxReadSize

@@ -35,6 +35,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AesCcmTests.cs" />
     <Compile Include="NetBiosTests.cs" />
     <Compile Include="NTFileStore\NTDirectoryFileSystemTests.cs" />
     <Compile Include="NTFileStore\NTFileStoreTests.cs" />
@@ -44,6 +45,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RPCTests.cs" />
+    <Compile Include="SMB2EncryptionTests.cs" />
     <Compile Include="SMB2SigningTests.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <AssemblyName>SMBServer.Tests</AssemblyName>
-    <RootNamespace>SMBServer.Tests</RootNamespace>
+    <AssemblyName>SMBLibrary.Tests</AssemblyName>
+    <RootNamespace>SMBLibrary.Tests</RootNamespace>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
