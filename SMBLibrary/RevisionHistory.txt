@@ -436,3 +436,26 @@ Revision History:
 
 1.4.2 - Server: Bugfix: Buffer was not set to the correct size for SMB2 Large MTU.
         Client: Client: SMB1FileStore: Implemented SetFileInformation with FileInformation parameter.
+
+1.4.3 - Client: Bugfix: Reading FindInformationList may have caused infinite loop.
+        Added SMB2TransformHeader implementation.
+        Added logic to calculate SMB 3.x encryption / decryption keys.
+        Added SMB 3.0 message signing logic.
+        SMB2Cryptography: Added logic for SMB 3.0 encryption.
+        Client: Added SMB 3.0 support.
+        Server: Added option to enable SMB 3.0 dialect.
+        
+1.4.4 - SocketUtils.SetKeepAlive: Added support for Linux.
+        Moved NTFileSystemAdapter to SMBLibrary.Adapters.
+        ServerServiceHelper: Extracted BindPipe method.
+        Made BindPipe method more generic and movied it to NamedPipeHelper.
+        Client: ServerServiceHelper.ListShares: Close pipe after all data has been read.
+        NDRUnicodeString: Added constructor argument allowing skipping writing null terminator character.
+        NDRParser / NDRWriter: Added ability to read/write arbitrary number of bytes.
+
+1.4.5 - SimpleProtectedNegotiationTokenResponse: Bugfix: GetBytes threw exception when MechanismListMIC was not null.
+        NTLM: AuthenticateMessage: Read/Write MIC field if present.
+        NTLM: AuthenticateMessage: Immitate Windows write order for easier comparison.
+        NTLM: Bugfix: IndependentNTLMAuthenticationProvider login failed to to modification of message byte arrays.
+
+1.4.6 - SMB2Client: Fixed InvalidCastException on failed login to SMB 3.0 server.

@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2017 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2014-2020 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
@@ -19,10 +19,6 @@ namespace SMBLibrary.Client
     {
         public static async Task<(NTStatus status, IEnumerable<string> result)> ListShares(INTFileStore namedPipeShare, ShareType? shareType, CancellationToken cancellationToken)
         {
-            //object pipeHandle;
-            //FileStatus fileStatus;
-            //status = namedPipeShare.CreateFile(out pipeHandle, out fileStatus, ServerService.ServicePipeName, (AccessMask)(FileAccessMask.FILE_READ_DATA | FileAccessMask.FILE_WRITE_DATA), 0, ShareAccess.Read | ShareAccess.Write, CreateDisposition.FILE_OPEN, 0, null);
-
             var (status, pipeHandle, fileStatus) = await namedPipeShare.CreateFile(ServerService.ServicePipeName,
                                                                                (AccessMask)(FileAccessMask.FILE_READ_DATA | FileAccessMask.FILE_WRITE_DATA),
                                                                                0,
@@ -31,11 +27,6 @@ namespace SMBLibrary.Client
                                                                                0,
                                                                                null,
                                                                                cancellationToken);
-
-            if (status != NTStatus.STATUS_SUCCESS)
-            {
-                return (status, Enumerable.Empty<string>());
-            }
 
             BindPDU bindPDU = new BindPDU();
             bindPDU.Flags = PacketFlags.FirstFragment | PacketFlags.LastFragment;
@@ -79,9 +70,11 @@ namespace SMBLibrary.Client
             requestPDU.OpNum = (ushort)ServerServiceOpName.NetrShareEnum;
             requestPDU.Data = shareEnumRequest.GetBytes();
             requestPDU.AllocationHint = (uint)requestPDU.Data.Length;
+
             input = requestPDU.GetBytes();
             int maxOutputLength = bindAckPDU.MaxTransmitFragmentSize;
             (status, output) = await namedPipeShare.DeviceIOControl(pipeHandle, (uint)IoControlCode.FSCTL_PIPE_TRANSCEIVE, input, maxOutputLength, cancellationToken);
+
             if (status != NTStatus.STATUS_SUCCESS)
             {
                 return (status, Enumerable.Empty<string>());
@@ -109,6 +102,7 @@ namespace SMBLibrary.Client
                 }
                 responseData = ByteUtils.Concatenate(responseData, responsePDU.Data);
             }
+            await namedPipeShare.CloseFileAsync(pipeHandle, cancellationToken);
             NetrShareEnumResponse shareEnumResponse = new NetrShareEnumResponse(responseData);
             ShareInfo1Container shareInfo1 = shareEnumResponse.InfoStruct.Info as ShareInfo1Container;
             if (shareInfo1 == null || shareInfo1.Entries == null)

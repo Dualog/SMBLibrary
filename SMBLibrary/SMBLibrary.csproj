@@ -5,26 +5,18 @@
     <AssemblyName>SMBLibraryCore.Client</AssemblyName>
     <PackageId>SMBLibraryCore.Client</PackageId>
     <PackOnBuild>true</PackOnBuild>
-    <Authors>tormartinh74</Authors>
+    <Authors>tormartinh74, Tal Aloni, oysteiae</Authors>
     <Company>Dualog AS</Company>
-    <Description>Free, Open Source, User-Mode SMB 1.0/CIFS, SMB 2.0 and SMB 2.1 Client Library</Description>
     <RepositoryUrl>https://github.com/Dualog/SMBLibrary</RepositoryUrl>
-    <Version>1.0.0.0</Version>
+    <PackageProjectUrl>https://github.com/Dualog/SMBLibrary</PackageProjectUrl>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Version>1.4.6</Version>
+    <NoWarn>1573;1591</NoWarn>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageDescription>SMBLibrary is an open-source C# SMB 1.0/CIFS, SMB 2.0, SMB 2.1 and SMB 3.0 server and client implementation</PackageDescription>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
-  <!-- PropertyGroup>
-    <PackageLicenseUrl>https://github.com/jordanlytle/SMBLibrary/blob/master/License.txt</PackageLicenseUrl>
-    <PackageProjectUrl>https://github.com/jordanlytle/SMBLibrary</PackageProjectUrl>
-    <RepositoryType>git</RepositoryType>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Version>1.0.0.0</Version>
-  </PropertyGroup -->
 
   <ItemGroup>
     <ProjectReference Include="..\Utilities\Utilities.csproj">
