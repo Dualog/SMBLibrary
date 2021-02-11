@@ -11,7 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 100
+
     - name: Setup Dotnet Core
       uses: actions/setup-dotnet@v1
       with:
@@ -20,38 +23,14 @@ jobs:
       env:
         NUGET_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
-    - name: Fetch tags and master for GitVersion
-      run: |
-        git fetch --tags
-        git branch --create-reflog master origin/master
-    
-    - name: GitVersion
-      id: gitversion  # step id used as reference for output values
-      uses: roryprimrose/rungitversion@v1
-
-    - name: Update project version
-      uses: roryprimrose/set-vs-sdk-project-version@v1
-      with:
-        version: ${{ steps.gitversion.outputs.NuGetVersionV2 }}
-        assemblyVersion: ${{ steps.gitversion.outputs.AssemblySemVer }}
-        fileVersion: ${{ steps.gitversion.outputs.MajorMinorPatch }}
-        informationalVersion: ${{ steps.gitversion.outputs.InformationalVersion }}
-
     - name: Setup Nuget Config
       run: sed 's/GITHUB_TOKEN/${{ secrets.NUGET_TOKEN }}/g' .nuget.config > nuget.config
 
-    - name: Build
-      run: dotnet build --configuration Release
+    - name: Build packages
+      run: dotnet build -c Release /p:PublicRelease=true
 
-    - name: Prep Version String
-      run: echo ::set-env name=VERSION_NUMBER::$(echo ${{ steps.bump_version.outputs.new_tag }} | sed 's/[v]//g')
-
-    - name: Define Package Name
-      run: echo ::set-env name=PACKAGE_NAME::$"SMBLibrary/bin/Release/SMBLibraryCore.Client.${{ env.VERSION_NUMBER }}.nupkg"
-
-    - name: Pack
-      run: dotnet pack --configuration Release
-
-    - name: Publish Package
-      run: dotnet nuget push SMBLibrary/bin/Release/*.nupkg -k ${{ secrets.NUGET_TOKEN }} -s https://api.nuget.org/v3/index.json
+    - name: Pack packages
+      run: dotnet pack -c Release /p:PublicRelease=true
       
+    - name: Publish Package
+      run: dotnet nuget push ./**/*.nupkg -k ${{ secrets.NUGET_TOKEN }} -s https://api.nuget.org/v3/index.json
