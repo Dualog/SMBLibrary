@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
 
-    <!-- Packaging -->
+  <!-- Packaging -->
   <PropertyGroup>
     <Owner>Dualog</Owner>
     <Authors>tormartinh74, Tal Aloni, oysteiae</Authors>
@@ -19,18 +19,8 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedAllSources>true</EmbedAllSources>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
-    <RootNamespace>SMBLibrary</RootNamespace>
-    <AssemblyName>SMBLibraryCore.Client</AssemblyName>
-    <PackageId>SMBLibraryCore.Client</PackageId>
-    <PackOnBuild>true</PackOnBuild>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Version>1.6.0</Version>
-    <NoWarn>1573;1591</NoWarn>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <PackageDescription>SMBLibrary is an open-source C# SMB 1.0/CIFS, SMB 2.0, SMB 2.1 and SMB 3.0 server and client implementation</PackageDescription>
     <Description>SMBLibrary is an open-source C# SMB 1.0/CIFS, SMB 2.0, SMB 2.1 and SMB 3.0 server and client implementation</Description>
-    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <!-- Common compile parameters -->
