@@ -1,9 +1,9 @@
 name: Continuous Integration
 
 on:
-  release:
-    types: # This configuration does not affect the page_build event above
-      - created
+  push:
+    branches: # This configuration does not affect the page_build event above
+      - master
         
 jobs:
   build:
