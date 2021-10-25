@@ -1,4 +1,4 @@
-/* Copyright (C) 2014-2020 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2014-2021 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
@@ -17,51 +17,27 @@ namespace SMBLibrary.Client
 {
     public class ServerServiceHelper
     {
-        public static async Task<(NTStatus status, IEnumerable<string> result)> ListShares(INTFileStore namedPipeShare, ShareType? shareType, CancellationToken cancellationToken)
+        public static Task<(NTStatus status, IEnumerable<string> result)> ListShares(INTFileStore namedPipeShare, ShareType? shareType, CancellationToken cancellationToken)
         {
-            var (status, pipeHandle, fileStatus) = await namedPipeShare.CreateFile(ServerService.ServicePipeName,
-                                                                               (AccessMask)(FileAccessMask.FILE_READ_DATA | FileAccessMask.FILE_WRITE_DATA),
-                                                                               0,
-                                                                               ShareAccess.Read | ShareAccess.Write,
-                                                                               CreateDisposition.FILE_OPEN,
-                                                                               0,
-                                                                               null,
-                                                                               cancellationToken);
+            return ListShares(namedPipeShare, "*", shareType, cancellationToken);
+        }
 
-            BindPDU bindPDU = new BindPDU();
-            bindPDU.Flags = PacketFlags.FirstFragment | PacketFlags.LastFragment;
-            bindPDU.DataRepresentation.CharacterFormat = CharacterFormat.ASCII;
-            bindPDU.DataRepresentation.ByteOrder = ByteOrder.LittleEndian;
-            bindPDU.DataRepresentation.FloatingPointRepresentation = FloatingPointRepresentation.IEEE;
-            bindPDU.MaxTransmitFragmentSize = 5680;
-            bindPDU.MaxReceiveFragmentSize = 5680;
-
-            ContextElement serverServiceContext = new ContextElement();
-            serverServiceContext.AbstractSyntax = new SyntaxID(ServerService.ServiceInterfaceGuid, ServerService.ServiceVersion);
-            serverServiceContext.TransferSyntaxList.Add(new SyntaxID(RemoteServiceHelper.NDRTransferSyntaxIdentifier, RemoteServiceHelper.NDRTransferSyntaxVersion));
-            
-            bindPDU.ContextList.Add(serverServiceContext);
-
-            byte[] input = bindPDU.GetBytes();
-            byte[] output;
-            (status, output) = await namedPipeShare.DeviceIOControl(pipeHandle, (uint)IoControlCode.FSCTL_PIPE_TRANSCEIVE, input, 4096, cancellationToken);
+        /// <param name="serverName">
+        /// When a Windows Server host is using Failover Cluster & Cluster Shared Volumes, each of those CSV file shares is associated
+        /// with a specific host name associated with the cluster and is not accessible using the node IP address or node host name.
+        /// </param>
+        public static async Task<(NTStatus status, IEnumerable<string> result)> ListShares(INTFileStore namedPipeShare, string serverName, ShareType? shareType, CancellationToken cancellationToken)
+        {
+            var (status, pipeHandle, maxTransmitFragmentSize) = await NamedPipeHelper.BindPipe(namedPipeShare, ServerService.ServicePipeName, ServerService.ServiceInterfaceGuid, ServerService.ServiceVersion, cancellationToken);
             if (status != NTStatus.STATUS_SUCCESS)
-            {
                 return (status, Enumerable.Empty<string>());
-            }
-            BindAckPDU bindAckPDU = RPCPDU.GetPDU(output, 0) as BindAckPDU;
-            if (bindAckPDU == null)
-            {
-                status = NTStatus.STATUS_NOT_SUPPORTED;
-                return (status, Enumerable.Empty<string>());
-            }
 
             NetrShareEnumRequest shareEnumRequest = new NetrShareEnumRequest();
             shareEnumRequest.InfoStruct = new ShareEnum();
             shareEnumRequest.InfoStruct.Level = 1;
             shareEnumRequest.InfoStruct.Info = new ShareInfo1Container();
             shareEnumRequest.PreferedMaximumLength = UInt32.MaxValue;
-            shareEnumRequest.ServerName = "*";
+            shareEnumRequest.ServerName = serverName;
             RequestPDU requestPDU = new RequestPDU();
             requestPDU.Flags = PacketFlags.FirstFragment | PacketFlags.LastFragment;
             requestPDU.DataRepresentation.CharacterFormat = CharacterFormat.ASCII;
@@ -71,8 +47,9 @@ namespace SMBLibrary.Client
             requestPDU.Data = shareEnumRequest.GetBytes();
             requestPDU.AllocationHint = (uint)requestPDU.Data.Length;
 
-            input = requestPDU.GetBytes();
-            int maxOutputLength = bindAckPDU.MaxTransmitFragmentSize;
+            var input = requestPDU.GetBytes();
+            int maxOutputLength = maxTransmitFragmentSize;
+            byte[] output;
             (status, output) = await namedPipeShare.DeviceIOControl(pipeHandle, (uint)IoControlCode.FSCTL_PIPE_TRANSCEIVE, input, maxOutputLength, cancellationToken);
 
             if (status != NTStatus.STATUS_SUCCESS)
