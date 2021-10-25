@@ -28,7 +28,7 @@ namespace SMBLibrary
 
         Task<(NTStatus status, int numberOfBytesWritten)> WriteFileAsync(object handle, long offset, byte[] data, CancellationToken cancellationToken);
 
-        Task<NTStatus> FlushFileBuffersAsync(object handle);
+        Task<NTStatus> FlushFileBuffersAsync(object handle, CancellationToken cancellationToken);
 
         NTStatus LockFile(object handle, long byteOffset, long length, bool exclusiveLock);
 

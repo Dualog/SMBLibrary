@@ -92,12 +92,12 @@ namespace SMBLibrary
             return Task.FromResult((NTStatus.STATUS_SUCCESS, data.Length));
         }
 
-        public Task<NTStatus> FlushFileBuffersAsync(object handle)
+        public Task<NTStatus> FlushFileBuffersAsync(object handle, CancellationToken cancellationToken)
         {
             FileHandle fileHandle = (FileHandle)handle;
             if (fileHandle.Stream != null)
             {
-                fileHandle.Stream.Flush();
+                fileHandle.Stream.FlushAsync(cancellationToken);
             }
             return Task.FromResult(NTStatus.STATUS_SUCCESS);
         }
