@@ -14,9 +14,9 @@ namespace SMBLibrary.Client
 {
     public interface ISMBClient
     {
-        Task<bool> ConnectAsync(string serverName, SMBTransportType transport, CancellationToken cancellationToken);
+        Task<(bool Success, string ErrorMessage)> ConnectAsync(string serverName, SMBTransportType transport, CancellationToken cancellationToken);
 
-        Task<bool> ConnectAsync(IPAddress serverAddress, SMBTransportType transport, CancellationToken cancellationToken);
+        Task<(bool Success, string ErrorMessage)> ConnectAsync(IPAddress serverAddress, SMBTransportType transport, CancellationToken cancellationToken);
 
         void Disconnect();
 
@@ -29,6 +29,7 @@ namespace SMBLibrary.Client
         Task<(NTStatus status, IEnumerable<string> shares)> ListShares(CancellationToken cancellationToken);
 
         Task<(NTStatus status, ISMBFileStore share)> TreeConnectAsync(string shareName, CancellationToken cancellationToken);
+
 
         uint MaxReadSize
         {

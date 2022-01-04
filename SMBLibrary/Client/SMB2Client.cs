@@ -65,7 +65,7 @@ namespace SMBLibrary.Client
         /// When a Windows Server host is using Failover Cluster & Cluster Shared Volumes, each of those CSV file shares is associated
         /// with a specific host name associated with the cluster and is not accessible using the node IP address or node host name.
         /// </param>
-        public Task<bool> ConnectAsync(string serverName, SMBTransportType transport, CancellationToken cancellationToken)
+        public Task<(bool Success, string ErrorMessage)> ConnectAsync(string serverName, SMBTransportType transport, CancellationToken cancellationToken)
         {
             m_serverName = serverName;
             IPHostEntry hostEntry = Dns.GetHostEntry(serverName);
@@ -77,7 +77,7 @@ namespace SMBLibrary.Client
             return ConnectAsync(serverAddress, transport, cancellationToken);
         }
 
-        public async Task<bool> ConnectAsync(IPAddress serverAddress, SMBTransportType transport, CancellationToken cancellationToken)
+        public async Task<(bool Success, string ErrorMessage)> ConnectAsync(IPAddress serverAddress, SMBTransportType transport, CancellationToken cancellationToken)
         {
             if (m_serverName == null)
             {
@@ -97,9 +97,10 @@ namespace SMBLibrary.Client
                     port = DirectTCPPort;
                 }
 
-                if (!ConnectSocket(serverAddress, port))
+                var ConResult1 = ConnectSocket(serverAddress, port);
+                if (!ConResult1.Success)
                 {
-                    return false;
+                    return ConResult1;
                 }
 
                 if (transport == SMBTransportType.NetBiosOverTCP)
@@ -113,16 +114,17 @@ namespace SMBLibrary.Client
                     if (!(sessionResponsePacket is PositiveSessionResponsePacket))
                     {
                         m_clientSocket.Disconnect(false);
-                        if (!ConnectSocket(serverAddress, port))
+                        var ConResult2 = ConnectSocket(serverAddress, port);
+                        if (!ConResult2.Success)
                         {
-                            return false;
+                            return ConResult2;
                         }
 
                         NameServiceClient nameServiceClient = new NameServiceClient(serverAddress);
                         string serverName = nameServiceClient.GetServerName();
                         if (serverName == null)
                         {
-                            return false;
+                            return (false, String.Empty);
                         }
 
                         sessionRequest.CalledName = serverName;
@@ -131,25 +133,26 @@ namespace SMBLibrary.Client
                         sessionResponsePacket = WaitForSessionResponsePacket();
                         if (!(sessionResponsePacket is PositiveSessionResponsePacket))
                         {
-                            return false;
+                            return (false, String.Empty);
                         }
                     }
                 }
 
-                bool supportsDialect = await NegotiateDialectAsync(cancellationToken);
-                if (!supportsDialect)
+                var supportsDialect = await NegotiateDialectAsync(cancellationToken);
+                if (!supportsDialect.Success)
                 {
                     m_clientSocket.Close();
+                    return (false, supportsDialect.ErrorMessage);
                 }
                 else
                 {
                     m_isConnected = true;
                 }
             }
-            return m_isConnected;
+            return (m_isConnected, String.Empty);
         }
 
-        private bool ConnectSocket(IPAddress serverAddress, int port)
+        private (bool Success, string ErrorMessage) ConnectSocket(IPAddress serverAddress, int port)
         {
             m_clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
@@ -157,27 +160,18 @@ namespace SMBLibrary.Client
             {
                 m_clientSocket.Connect(serverAddress, port);
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
-                return false;
+                return (false, e.Message);
             }
 
             ConnectionState state = new ConnectionState(m_clientSocket);
             NBTConnectionReceiveBuffer buffer = state.ReceiveBuffer;
             m_clientSocket.BeginReceive(buffer.Buffer, buffer.WriteOffset, buffer.AvailableLength, SocketFlags.None, new AsyncCallback(OnClientSocketReceive), state);
-            return true;
+            return (true, string.Empty);
         }
 
-        public void Disconnect()
-        {
-            if (m_isConnected)
-            {
-                m_clientSocket.Disconnect(false);
-                m_isConnected = false;
-            }
-        }
-
-        private async Task<bool> NegotiateDialectAsync(CancellationToken cancellationToken)
+        private async Task<(bool Success, string ErrorMessage)> NegotiateDialectAsync(CancellationToken cancellationToken)
         {
             NegotiateRequest request = new NegotiateRequest();
             request.SecurityMode = SecurityMode.SigningEnabled;
@@ -189,18 +183,38 @@ namespace SMBLibrary.Client
             request.Dialects.Add(SMB2Dialect.SMB300);
 
             await TrySendCommandAsync(request, cancellationToken);
-            NegotiateResponse response = WaitForCommand(request.MessageID) as NegotiateResponse;
-            if (response != null && response.Header.Status == NTStatus.STATUS_SUCCESS)
+            var command = WaitForCommand(request.MessageID);
+
+            if (command == null)
+                return (false, "Negotiate failed. Server did not respond. Either not a SMB server or is not supporting SMBv2 or 3.");
+
+            if (command.Header.Status == NTStatus.STATUS_SUCCESS)
             {
+                NegotiateResponse response = command as NegotiateResponse;
                 m_dialect = response.DialectRevision;
                 m_signingRequired = (response.SecurityMode & SecurityMode.SigningRequired) > 0;
                 m_maxTransactSize = Math.Min(response.MaxTransactSize, ClientMaxTransactSize);
                 m_maxReadSize = Math.Min(response.MaxReadSize, ClientMaxReadSize);
                 m_maxWriteSize = Math.Min(response.MaxWriteSize, ClientMaxWriteSize);
                 m_securityBlob = response.SecurityBuffer;
-                return true;
+                return (true, String.Empty);
             }
-            return false;
+
+            return command.Header.Status switch
+            {
+                NTStatus.STATUS_INVALID_PARAMETER => (false, "Negotiate failed with invalid parameter."),
+                NTStatus.STATUS_NOT_SUPPORTED => (false, "Negotiate failed. Server not supporting SMB version 2.0.2, 2.1 or 3.0."),
+                _ => (false, "Negotiate failed."),
+            };
+        }
+
+        public void Disconnect()
+        {
+            if (m_isConnected)
+            {
+                m_clientSocket.Disconnect(false);
+                m_isConnected = false;
+            }
         }
 
         public Task<NTStatus> LoginAsync(string domainName, string userName, string password, CancellationToken cancellationToken)
