@@ -27,7 +27,7 @@ namespace SMBLibrary.Client
         public static readonly uint ClientMaxReadSize = 1048576;
         public static readonly uint ClientMaxWriteSize = 1048576;
         private static readonly ushort DesiredCredits = 16;
-        public static readonly int ResponseTimeoutInMilliseconds = 5000;
+        public static readonly int ResponseTimeoutInMilliseconds = 15000;
 
         private string m_serverName;
         private SMBTransportType m_transport;
@@ -124,7 +124,7 @@ namespace SMBLibrary.Client
                         string serverName = nameServiceClient.GetServerName();
                         if (serverName == null)
                         {
-                            return (false, String.Empty);
+                            return (false, "Could not get server name.");
                         }
 
                         sessionRequest.CalledName = serverName;
@@ -133,7 +133,7 @@ namespace SMBLibrary.Client
                         sessionResponsePacket = WaitForSessionResponsePacket();
                         if (!(sessionResponsePacket is PositiveSessionResponsePacket))
                         {
-                            return (false, String.Empty);
+                            return (false, "Timeout while waiting for session response packet");
                         }
                     }
                 }
@@ -162,7 +162,7 @@ namespace SMBLibrary.Client
             }
             catch (SocketException e)
             {
-                return (false, e.Message);
+                return (false, "Could not establish connection to a remote host: " + e.Message);
             }
 
             ConnectionState state = new ConnectionState(m_clientSocket);
@@ -204,7 +204,7 @@ namespace SMBLibrary.Client
             {
                 NTStatus.STATUS_INVALID_PARAMETER => (false, "Negotiate failed with invalid parameter."),
                 NTStatus.STATUS_NOT_SUPPORTED => (false, "Negotiate failed. Server not supporting SMB version 2.0.2, 2.1 or 3.0."),
-                _ => (false, "Negotiate failed."),
+                _ => (false, "Negotiate failed: " + command.Header.Status),
             };
         }
 
@@ -532,10 +532,9 @@ namespace SMBLibrary.Client
 
         internal SessionPacket WaitForSessionResponsePacket()
         {
-            const int TimeOut = 5000;
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            while (stopwatch.ElapsedMilliseconds < TimeOut)
+            while (stopwatch.ElapsedMilliseconds < ResponseTimeoutInMilliseconds)
             {
                 if (m_sessionResponsePacket != null)
                 {
