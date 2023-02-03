@@ -559,6 +559,20 @@ namespace SMBLibrary.Client
             return TrySendCommandAsync(request, m_encryptSessionData, cancellationToken);
         }
 
+        private async Task<bool> WaitForAmountOfCredits(ushort amountOfCreditsNeeded, int timeout, CancellationToken cancellationToken)
+        {
+            int waitTimeMs = timeout;
+            await Task.Run(async () =>
+            {
+                while (m_availableCredits < amountOfCreditsNeeded && waitTimeMs > 0)
+                {
+                    await Task.Delay(100);
+                    waitTimeMs -= 100;
+                }
+            }, cancellationToken);
+            return m_availableCredits >= amountOfCreditsNeeded;
+        }
+
         internal async Task TrySendCommandAsync(SMB2Command request, bool encryptData, CancellationToken cancellationToken)
         {
             if (m_dialect == SMB2Dialect.SMB202 || m_transport == SMBTransportType.NetBiosOverTCP)
@@ -576,7 +590,11 @@ namespace SMBLibrary.Client
 
                 if (m_availableCredits < request.Header.CreditCharge)
                 {
-                    throw new Exception("Not enough credits");
+                    // SMB server did not send packet with credits on time (i.e. throttling, or too much connections) or the credit packet was lost.
+                    if (!await WaitForAmountOfCredits(request.Header.CreditCharge, ResponseTimeoutInMilliseconds, cancellationToken))
+                    {
+                        throw new Exception($"Not enough credits ({m_availableCredits} Available, {request.Header.CreditCharge} CreditCharge).");
+                    }
                 }
 
                 m_availableCredits -= request.Header.CreditCharge;
