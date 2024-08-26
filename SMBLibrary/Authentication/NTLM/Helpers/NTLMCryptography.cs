@@ -1,11 +1,10 @@
-/* Copyright (C) 2014-2017 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2014-2024 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
  * either version 3 of the License, or (at your option) any later version.
  */
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -78,11 +77,26 @@ namespace SMBLibrary.Authentication.NTLM
         {
             DES des = DES.Create();
             des.Mode = mode;
-            DESCryptoServiceProvider sm = des as DESCryptoServiceProvider;
-            MethodInfo mi = sm.GetType().GetMethod("_NewEncryptor", BindingFlags.NonPublic | BindingFlags.Instance);
-            object[] Par = { rgbKey, mode, rgbIV, sm.FeedbackSize, 0 };
-            ICryptoTransform trans = mi.Invoke(sm, Par) as ICryptoTransform;
-            return trans;
+            ICryptoTransform transform;
+            if (DES.IsWeakKey(rgbKey) || DES.IsSemiWeakKey(rgbKey))            
+            {
+#if NETSTANDARD2_0
+                MethodInfo getTransformCoreMethodInfo = des.GetType().GetMethod("CreateTransformCore", BindingFlags.NonPublic | BindingFlags.Static);
+                object[] getTransformCoreParameters = { mode, des.Padding, rgbKey, rgbIV, des.BlockSize / 8 , des.FeedbackSize / 8,  des.BlockSize / 8, true };
+                transform = getTransformCoreMethodInfo.Invoke(null, getTransformCoreParameters) as ICryptoTransform;
+#else
+                DESCryptoServiceProvider desServiceProvider = des as DESCryptoServiceProvider;
+                MethodInfo newEncryptorMethodInfo = desServiceProvider.GetType().GetMethod("_NewEncryptor", BindingFlags.NonPublic | BindingFlags.Instance);
+                object[] encryptorParameters = { rgbKey, mode, rgbIV, desServiceProvider.FeedbackSize, 0 };
+                transform = newEncryptorMethodInfo.Invoke(desServiceProvider, encryptorParameters) as ICryptoTransform;
+#endif
+            }
+            else
+            {
+                transform = des.CreateEncryptor(rgbKey, rgbIV);
+            }
+
+            return transform;
         }
 
         /// <summary>
@@ -123,7 +137,11 @@ namespace SMBLibrary.Authentication.NTLM
 
         public static Encoding GetOEMEncoding()
         {
+#if NETSTANDARD2_0
+            return ASCIIEncoding.GetEncoding(28591);
+#else
             return Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.OEMCodePage);
+#endif
         }
 
         /// <summary>
@@ -238,6 +256,99 @@ namespace SMBLibrary.Authentication.NTLM
                 byte[] keyExchangeKey = new HMACMD5(sessionBaseKey).ComputeHash(buffer);
                 return keyExchangeKey;
             }
+        }
+
+        /// <remarks>
+        /// Caller must verify that the authenticate message has MIC before calling this method
+        /// </remarks>
+        public static bool ValidateAuthenticateMessageMIC(byte[] exportedSessionKey, byte[] negotiateMessageBytes, byte[] challengeMessageBytes, byte[] authenticateMessageBytes)
+        {
+            // https://msdn.microsoft.com/en-us/library/cc236695.aspx
+            int micFieldOffset = AuthenticateMessage.GetMicFieldOffset(authenticateMessageBytes);
+            byte[] expectedMic = ByteReader.ReadBytes(authenticateMessageBytes, micFieldOffset, AuthenticateMessage.MicFieldLenght);
+
+            ByteWriter.WriteBytes(authenticateMessageBytes, micFieldOffset, new byte[AuthenticateMessage.MicFieldLenght]);
+            byte[] temp = ByteUtils.Concatenate(ByteUtils.Concatenate(negotiateMessageBytes, challengeMessageBytes), authenticateMessageBytes);
+            byte[] mic = new HMACMD5(exportedSessionKey).ComputeHash(temp);
+
+            return ByteUtils.AreByteArraysEqual(mic, expectedMic);
+        }
+
+        public static byte[] ComputeClientSignKey(byte[] exportedSessionKey)
+        {
+            return ComputeSignKey(exportedSessionKey, true);
+        }
+
+        public static byte[] ComputeServerSignKey(byte[] exportedSessionKey)
+        {
+            return ComputeSignKey(exportedSessionKey, false);
+        }
+
+        private static byte[] ComputeSignKey(byte[] exportedSessionKey, bool isClient)
+        {
+            // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/524cdccb-563e-4793-92b0-7bc321fce096
+            string str;
+            if (isClient)
+            {
+                str = "session key to client-to-server signing key magic constant";
+            }
+            else
+            {
+                str = "session key to server-to-client signing key magic constant";
+            }
+            byte[] encodedString = Encoding.GetEncoding(28591).GetBytes(str);
+            byte[] nullTerminatedEncodedString = ByteUtils.Concatenate(encodedString, new byte[1]);
+            byte[] concatendated = ByteUtils.Concatenate(exportedSessionKey, nullTerminatedEncodedString);
+            return MD5.Create().ComputeHash(concatendated);
+        }
+
+        public static byte[] ComputeClientSealKey(byte[] exportedSessionKey)
+        {
+            return ComputeSealKey(exportedSessionKey, true);
+        }
+
+        public static byte[] ComputeServerSealKey(byte[] exportedSessionKey)
+        {
+            return ComputeSealKey(exportedSessionKey, false);
+        }
+
+        private static byte[] ComputeSealKey(byte[] exportedSessionKey, bool isClient)
+        {
+            // https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/524cdccb-563e-4793-92b0-7bc321fce096
+            string str;
+            if (isClient)
+            {
+                str = "session key to client-to-server sealing key magic constant";
+            }
+            else
+            {
+                str = "session key to server-to-client sealing key magic constant";
+            }
+            byte[] encodedString = Encoding.GetEncoding(28591).GetBytes(str);
+            byte[] nullTerminatedEncodedString = ByteUtils.Concatenate(encodedString, new byte[1]);
+            byte[] concatendated = ByteUtils.Concatenate(exportedSessionKey, nullTerminatedEncodedString);
+            return MD5.Create().ComputeHash(concatendated);
+        }
+
+        public static byte[] ComputeMechListMIC(byte[] exportedSessionKey, byte[] message)
+        {
+            return ComputeMechListMIC(exportedSessionKey, message, 0);
+        }
+
+        public static byte[] ComputeMechListMIC(byte[] exportedSessionKey, byte[] message, int seqNum)
+        {
+            // [MS-NLMP] 3.4.4.2
+            byte[] signKey = ComputeClientSignKey(exportedSessionKey);
+            byte[] sequenceNumberBytes = LittleEndianConverter.GetBytes(seqNum);
+            byte[] concatendated = ByteUtils.Concatenate(sequenceNumberBytes, message);
+            byte[] fullHash = new HMACMD5(signKey).ComputeHash(concatendated);
+            byte[] hash = ByteReader.ReadBytes(fullHash, 0, 8);
+
+            byte[] sealKey = ComputeClientSealKey(exportedSessionKey);
+            byte[] encryptedHash = RC4.Encrypt(sealKey, hash);
+
+            byte[] version = new byte[] { 0x01, 0x00, 0x00, 0x00 };
+            return ByteUtils.Concatenate(ByteUtils.Concatenate(version, encryptedHash), sequenceNumberBytes);
         }
     }
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2017-2021 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2017-2024 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
@@ -41,7 +41,7 @@ namespace SMBLibrary.Client
             request.ImpersonationLevel = ImpersonationLevel.Impersonation;
             await TrySendCommandAsync(request, cancellationToken);
 
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
 
             var fileStatus = FileStatus.FILE_DOES_NOT_EXIST;
             if (response != null)
@@ -57,21 +57,23 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, handle, fileStatus);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, null, fileStatus);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, null, fileStatus);
         }
 
         public async Task<NTStatus> CloseFileAsync(object handle, CancellationToken cancellationToken)
         {
             CloseRequest request = new CloseRequest();
             request.FileId = (FileID)handle;
+
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
+
             if (response != null)
             {
                 return response.Header.Status;
             }
 
-            return NTStatus.STATUS_INVALID_SMB;
+            return connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT;
         }
 
         public async Task<(NTStatus status, byte[] data)> ReadFileAsync(object handle, long offset, int maxCount, CancellationToken cancellationToken)
@@ -81,9 +83,9 @@ namespace SMBLibrary.Client
             request.FileId = (FileID)handle;
             request.Offset = (ulong)offset;
             request.ReadLength = (uint)maxCount;
-            
+
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 byte[] data = null;
@@ -94,7 +96,7 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, data);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, null);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, null);
         }
 
         public async Task<(NTStatus status, int numberOfBytesWritten)> WriteFileAsync(object handle, long offset, byte[] data, CancellationToken cancellationToken)
@@ -106,7 +108,7 @@ namespace SMBLibrary.Client
             request.Data = data;
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 int numberOfBytesWritten = 0;
@@ -119,7 +121,7 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, numberOfBytesWritten);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, 0);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, 0);
         }
 
         public async Task<NTStatus> FlushFileBuffersAsync(object handle, CancellationToken cancellationToken)
@@ -128,7 +130,7 @@ namespace SMBLibrary.Client
             request.FileId = (FileID) handle;
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 if (response.Header.Status == NTStatus.STATUS_SUCCESS && response is FlushResponse)
@@ -137,7 +139,7 @@ namespace SMBLibrary.Client
                 }
             }
 
-            return NTStatus.STATUS_INVALID_SMB;
+            return connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT;
         }
 
         public NTStatus LockFile(object handle, long byteOffset, long length, bool exclusiveLock)
@@ -161,7 +163,7 @@ namespace SMBLibrary.Client
             request.FileName = fileName;
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 var result = new List<QueryDirectoryFileInformation>();
@@ -171,12 +173,16 @@ namespace SMBLibrary.Client
                     result.AddRange(page);
                     request.Reopen = false;
                     await TrySendCommandAsync(request, cancellationToken);
-                    response = m_client.WaitForCommand(request.MessageID);
+                    response = m_client.WaitForCommand(request.MessageID, out connectionTerminated);
+                    if (response == null)
+                    {
+                        return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, Enumerable.Empty<QueryDirectoryFileInformation>());
+                    }
                 }
                 return (response.Header.Status, result);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, Enumerable.Empty<QueryDirectoryFileInformation>());
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, Enumerable.Empty<QueryDirectoryFileInformation>());
         }
 
         public async Task<(NTStatus status, FileInformation result)> GetFileInformationAsync(object handle, FileInformationClass informationClass, CancellationToken cancellationToken)
@@ -188,7 +194,7 @@ namespace SMBLibrary.Client
             request.FileId = (FileID)handle;
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 FileInformation result = null;
@@ -199,7 +205,7 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, result);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, null);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, null);
         }
 
         public async Task<NTStatus> SetFileInformationAsync(object handle, FileInformation information, CancellationToken cancellationToken)
@@ -211,13 +217,13 @@ namespace SMBLibrary.Client
             request.SetFileInformation(information);
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 return response.Header.Status;
             }
 
-            return NTStatus.STATUS_INVALID_SMB;
+            return connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT;
         }
 
         public async Task<(NTStatus status, FileSystemInformation result)> GetFileSystemInformationAsync(FileSystemInformationClass informationClass, CancellationToken cancellationToken)
@@ -243,7 +249,7 @@ namespace SMBLibrary.Client
             request.FileId = (FileID)handle;
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 FileSystemInformation result = null;
@@ -254,7 +260,7 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, result);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, null);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, null);
         }
 
         public NTStatus SetFileSystemInformation(FileSystemInformation information)
@@ -272,7 +278,7 @@ namespace SMBLibrary.Client
             request.FileId = (FileID)handle;
 
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 if (response.Header.Status == NTStatus.STATUS_SUCCESS && response is QueryInfoResponse)
@@ -282,7 +288,7 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, result);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, result);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, result);
         }
 
         public Task<NTStatus> SetSecurityInformation(object handle, SecurityInformation securityInformation, SecurityDescriptor securityDescriptor)
@@ -311,7 +317,7 @@ namespace SMBLibrary.Client
             request.Input = input;
             request.MaxOutputResponse = (uint)maxOutputLength;
             await TrySendCommandAsync(request, cancellationToken);
-            SMB2Command response = m_client.WaitForCommand(request.MessageID);
+            SMB2Command response = m_client.WaitForCommand(request.MessageID, out bool connectionTerminated);
             if (response != null)
             {
                 if ((response.Header.Status == NTStatus.STATUS_SUCCESS || response.Header.Status == NTStatus.STATUS_BUFFER_OVERFLOW) && response is IOCtlResponse)
@@ -321,7 +327,7 @@ namespace SMBLibrary.Client
                 return (response.Header.Status, output);
             }
 
-            return (NTStatus.STATUS_INVALID_SMB, output);
+            return (connectionTerminated ? NTStatus.STATUS_INVALID_SMB : NTStatus.STATUS_IO_TIMEOUT, output);
         }
 
         public async Task<NTStatus> DisconnectAsync()
@@ -340,6 +346,10 @@ namespace SMBLibrary.Client
         private Task TrySendCommandAsync(SMB2Command request, CancellationToken cancellationToken)
         {
             request.Header.TreeID = m_treeID;
+            if (!m_client.IsConnected)
+            {
+                throw new InvalidOperationException("The client is no longer connected");
+            }
             return m_client.TrySendCommandAsync(request, m_encryptShareData, cancellationToken);
         }
 
