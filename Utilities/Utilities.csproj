@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <RootNamespace>Utilities</RootNamespace>
-    <AssemblyName>Utilities</AssemblyName>
-    <TargetFrameworks>net20;net40;netstandard2.0</TargetFrameworks>
     <AssemblyName>Utilities</AssemblyName>
     <RootNamespace>Utilities</RootNamespace>
     <Copyright>Copyright © Tal Aloni 2005-2023</Copyright>
