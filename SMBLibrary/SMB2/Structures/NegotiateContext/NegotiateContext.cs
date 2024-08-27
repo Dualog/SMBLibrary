@@ -1,10 +1,9 @@
-/* Copyright (C) 2017 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2017-2024 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
  * either version 3 of the License, or (at your option) any later version.
  */
-using System;
 using System.Collections.Generic;
 using Utilities;
 
@@ -17,8 +16,8 @@ namespace SMBLibrary.SMB2
     {
         public const int FixedLength = 8;
 
-        public NegotiateContextType ContextType;
-        private ushort DataLength;
+        private NegotiateContextType m_contextType;
+        // ushort DataLength;
         public uint Reserved;
         public byte[] Data = new byte[0];
 
@@ -28,17 +27,21 @@ namespace SMBLibrary.SMB2
 
         public NegotiateContext(byte[] buffer, int offset)
         {
-            ContextType = (NegotiateContextType)LittleEndianConverter.ToUInt16(buffer, offset + 0);
-            DataLength = LittleEndianConverter.ToUInt16(buffer, offset + 2);
+            m_contextType = (NegotiateContextType)LittleEndianConverter.ToUInt16(buffer, offset + 0);
+            int dataLength = LittleEndianConverter.ToUInt16(buffer, offset + 2);
             Reserved = LittleEndianConverter.ToUInt32(buffer, offset + 4);
-            ByteReader.ReadBytes(buffer, offset + 8, DataLength);
+            Data = ByteReader.ReadBytes(buffer, offset + 8, dataLength);
+        }
+
+        public virtual void WriteData()
+        {
         }
 
         public void WriteBytes(byte[] buffer, int offset)
         {
-            DataLength = (ushort)Data.Length;
+            WriteData();
             LittleEndianWriter.WriteUInt16(buffer, offset + 0, (ushort)ContextType);
-            LittleEndianWriter.WriteUInt16(buffer, offset + 2, DataLength);
+            LittleEndianWriter.WriteUInt16(buffer, offset + 2, (ushort)DataLength);
             LittleEndianWriter.WriteUInt32(buffer, offset + 4, Reserved);
             ByteWriter.WriteBytes(buffer, offset + 8, Data);
         }
@@ -47,7 +50,30 @@ namespace SMBLibrary.SMB2
         {
             get
             {
-                return FixedLength + Data.Length;
+                return FixedLength + DataLength;
+            }
+        }
+
+        public int PaddedLength
+        {
+            get
+            {
+                int paddingLength = (8 - (DataLength % 8)) % 8;
+                return this.Length + paddingLength;
+            }
+        }
+
+        public static NegotiateContext ReadNegotiateContext(byte[] buffer, int offset)
+        {
+            NegotiateContextType contextType = (NegotiateContextType)LittleEndianConverter.ToUInt16(buffer, offset + 0);
+            switch (contextType)
+            {
+                case NegotiateContextType.SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+                    return new PreAuthIntegrityCapabilities(buffer, offset);
+                case NegotiateContextType.SMB2_ENCRYPTION_CAPABILITIES:
+                    return new EncryptionCapabilities(buffer, offset);
+                default:
+                    return new NegotiateContext(buffer, offset);
             }
         }
 
@@ -56,9 +82,9 @@ namespace SMBLibrary.SMB2
             List<NegotiateContext> result = new List<NegotiateContext>();
             for (int index = 0; index < count; index++)
             {
-                NegotiateContext context = new NegotiateContext(buffer, offset);
+                NegotiateContext context = ReadNegotiateContext(buffer, offset);
                 result.Add(context);
-                offset += context.Length;
+                offset += context.PaddedLength;
             }
             return result;
         }
@@ -69,10 +95,8 @@ namespace SMBLibrary.SMB2
             for (int index = 0; index < negotiateContextList.Count; index++)
             {
                 NegotiateContext context = negotiateContextList[index];
-                int length = context.Length;
-                int paddedLength = (int)Math.Ceiling((double)length / 8) * 8;
                 context.WriteBytes(buffer, offset);
-                offset += paddedLength;
+                offset += context.PaddedLength;
             }
         }
 
@@ -82,18 +106,20 @@ namespace SMBLibrary.SMB2
             for (int index = 0; index < negotiateContextList.Count; index++)
             {
                 NegotiateContext context = negotiateContextList[index];
-                int length = context.Length;
                 if (index < negotiateContextList.Count - 1)
                 {
-                    int paddedLength = (int)Math.Ceiling((double)length / 8) * 8;
-                    result += paddedLength;
+                    result += context.PaddedLength;
                 }
                 else
                 {
-                    result += length;
+                    result += context.Length;
                 }
             }
             return result;
         }
+
+        public virtual int DataLength => Data.Length;
+
+        public virtual NegotiateContextType ContextType => m_contextType;
     }
 }

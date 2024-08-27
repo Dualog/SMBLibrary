@@ -23,7 +23,7 @@ namespace SMBLibrary.Client
         }
 
         /// <param name="serverName">
-        /// When a Windows Server host is using Failover Cluster & Cluster Shared Volumes, each of those CSV file shares is associated
+        /// When a Windows Server host is using Failover Cluster and Cluster Shared Volumes, each of those CSV file shares is associated
         /// with a specific host name associated with the cluster and is not accessible using the node IP address or node host name.
         /// </param>
         public static async Task<(NTStatus status, IEnumerable<string> result)> ListShares(INTFileStore namedPipeShare, string serverName, ShareType? shareType, CancellationToken cancellationToken)
@@ -37,7 +37,7 @@ namespace SMBLibrary.Client
             shareEnumRequest.InfoStruct.Level = 1;
             shareEnumRequest.InfoStruct.Info = new ShareInfo1Container();
             shareEnumRequest.PreferedMaximumLength = UInt32.MaxValue;
-            shareEnumRequest.ServerName = serverName;
+            shareEnumRequest.ServerName = @"\\" + serverName;
             RequestPDU requestPDU = new RequestPDU();
             requestPDU.Flags = PacketFlags.FirstFragment | PacketFlags.LastFragment;
             requestPDU.DataRepresentation.CharacterFormat = CharacterFormat.ASCII;

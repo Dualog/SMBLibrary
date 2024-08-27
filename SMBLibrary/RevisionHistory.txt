@@ -459,3 +459,54 @@ Revision History:
         NTLM: Bugfix: IndependentNTLMAuthenticationProvider login failed to to modification of message byte arrays.
 
 1.4.6 - SMB2Client: Fixed InvalidCastException on failed login to SMB 3.0 server.
+
+1.4.7 - SMBServer: Added private Start overload allowing to specify the listening port.
+        Client: Added private Connect overload allowing to specify the server port.
+        SMB2Client: Correctly handle async responses.
+        SMB2Client: WaitForCommand: Compare MessageID instead of CommandName.
+        Client: SMB2FileStore: Implement Flush.
+        Client: Added support for accessing Cluster Shared Volumes file shares.
+        SMB2Command: Add MessageID property.
+        NTStatus: Added STATUS_WRONG_PASSWORD.
+        NTStatus: Correct STATUS_PASSWORD_MUST_CHANGE value.
+
+1.4.8 - SMBServer - Start method bugfix.
+
+1.4.9 - Server: SessionSetupHelper: Bugfix: Use correct sessionID for session creation in which token is accepted immediately.
+        Server: SessionSetupHelper: Bugfix: Trim session key if longer than 16 bytes.
+        Server: SMB2: Correctly handle invalid SessionSetup request containing a sessionID already in use.
+        Client: Fixed bug when trying to use local ip address as host name.
+        Client: Provide SPN with NTLMv2 token.
+        NTFileSystemAdapter: Avoid modifications of entries returned from IFileSystem.
+
+1.5.0 - Server: Fix issue when GSSAPI SessionKey is null.
+        Client: Added IsConnected property.
+        Client: Fixed IPv6 related issue.
+        Client: Add private overload to set response timeout in Connect method.
+        Client: Allow reusing client instance.
+        Client: Prefer IPv4 when resolving DNS hostname.
+        NTLMCryptography: Add .NET 5.0 \ 6.0 support.
+
+1.5.1 - Client: Support anonymous login.
+        Client: Added API to provide custom authentication.
+        Client: Improve disconnection detection.
+        Client: Add ability to control response timeout.
+        Client: Calculate Authentication message MIC.
+        NBTConnectionReceiveBuffer: Use ArrayPool rent buffers to reduce RAM usage.
+        Added access denied ace support.
+
+1.5.2 - Server: ServerService: correctly handle unsupported ShareEnum levels.
+        Server: Use CancellationToken for send keep-alive thread if available.
+        Server: ConnectionState: Fix thread-safety issue.
+        Client: Disconnect: Invoke Socket.Close.
+        Client: NetBIOS over TCP: Apply timeout set by the client instead of hardcoded value.
+        Client: Removed unneeded connectivity check before invoking EndReceive.
+        SMB2Client: Support non-Microsoft servers returning MaxReadSize > MaxTransactSize
+        NBTConnectionReceiveBuffer: Fix thread-safety issues.
+        FileRenameInformationType2: Bugfix: Ensure length is at least 24 bytes.
+
+1.5.3 - Server: SMBServer: Mark overloaded Start method as protected internal.
+        Client: Mark overloaded Start method as protected internal.
+        Client: Improve client response time when server disconnects or return invalid data.
+        Client: Fix possible NullReferenceException when disconnection occur during directory enumeration.
+        Client: SMB1FileStore, SMB2FileStore: Return STATUS_IO_TIMEOUT instead of STATUS_INVALID_SMB when server does not reply and there is no protocol violation.

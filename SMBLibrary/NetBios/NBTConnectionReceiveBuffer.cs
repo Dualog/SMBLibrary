@@ -1,17 +1,22 @@
-/* Copyright (C) 2014-2020 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2014-2024 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
  * either version 3 of the License, or (at your option) any later version.
  */
 using System;
-using System.Collections.Generic;
+#if NETSTANDARD2_0
+using System.Buffers;
+#endif
 using System.IO;
 using Utilities;
 
 namespace SMBLibrary.NetBios
 {
-    public class NBTConnectionReceiveBuffer
+    /// <remarks>
+    /// NBTConnectionReceiveBuffer is not thread-safe.
+    /// </remarks>
+    public class NBTConnectionReceiveBuffer : IDisposable
     {
         private byte[] m_buffer;
         private int m_readOffset = 0;
@@ -29,17 +34,30 @@ namespace SMBLibrary.NetBios
             {
                 throw new ArgumentException("bufferLength must be large enough to hold the largest possible NBT packet");
             }
+
+#if NETSTANDARD2_0
+            m_buffer = ArrayPool<byte>.Shared.Rent(bufferLength);
+#else
             m_buffer = new byte[bufferLength];
+#endif
         }
 
         public void IncreaseBufferSize(int bufferLength)
         {
+#if NETSTANDARD2_0
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferLength);
+#else
             byte[] buffer = new byte[bufferLength];
+#endif
             if (m_bytesInBuffer > 0)
             {
                 Array.Copy(m_buffer, m_readOffset, buffer, 0, m_bytesInBuffer);
                 m_readOffset = 0;
             }
+
+#if NETSTANDARD2_0
+            ArrayPool<byte>.Shared.Return(m_buffer);
+#endif
             m_buffer = buffer;
         }
 
@@ -108,6 +126,19 @@ namespace SMBLibrary.NetBios
                     m_readOffset = 0;
                 }
             }
+        }
+
+        public void Dispose()
+        {
+#if NETSTANDARD2_0
+            if (m_buffer != null)
+            {
+                ArrayPool<byte>.Shared.Return(m_buffer);
+                m_buffer = null;
+            }
+#else
+            m_buffer = null;
+#endif
         }
 
         public byte[] Buffer

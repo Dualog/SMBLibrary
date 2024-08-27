@@ -1,4 +1,4 @@
-/* Copyright (C) 2017 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
+/* Copyright (C) 2017-2024 Tal Aloni <tal.aloni.il@gmail.com>. All rights reserved.
  * 
  * You can redistribute this program and/or modify it under the terms of
  * the GNU Lesser Public License as published by the Free Software Foundation,
@@ -102,16 +102,7 @@ namespace SMBLibrary.Authentication.GSSAPI
 
         protected virtual int GetTokenFieldsLength()
         {
-            int result = 0;
-            if (MechanismTypeList != null)
-            {
-                int typeListSequenceLength = GetMechanismTypeListSequenceLength(MechanismTypeList);
-                int typeListSequenceLengthFieldSize = DerEncodingHelper.GetLengthFieldSize(typeListSequenceLength);
-                int typeListConstructionLength = 1 + typeListSequenceLengthFieldSize + typeListSequenceLength;
-                int typeListConstructionLengthFieldSize = DerEncodingHelper.GetLengthFieldSize(typeListConstructionLength);
-                int entryLength = 1 + typeListConstructionLengthFieldSize + 1 + typeListSequenceLengthFieldSize + typeListSequenceLength;
-                result += entryLength;
-            }
+            int result = GetEncodedMechanismTypeListLength(MechanismTypeList);
             if (MechanismToken != null)
             {
                 int mechanismTokenLengthFieldSize = DerEncodingHelper.GetLengthFieldSize(MechanismToken.Length);
@@ -200,6 +191,11 @@ namespace SMBLibrary.Authentication.GSSAPI
             int constructionLength = 1 + sequenceLengthFieldSize + sequenceLength;
             ByteWriter.WriteByte(buffer, ref offset, MechanismTypeListTag);
             DerEncodingHelper.WriteLength(buffer, ref offset, constructionLength);
+            WriteMechanismTypeListSequence(buffer, ref offset, mechanismTypeList, sequenceLength);
+        }
+
+        protected static void WriteMechanismTypeListSequence(byte[] buffer, ref int offset, List<byte[]> mechanismTypeList, int sequenceLength)
+        {
             ByteWriter.WriteByte(buffer, ref offset, (byte)DerEncodingTag.Sequence);
             DerEncodingHelper.WriteLength(buffer, ref offset, sequenceLength);
             foreach (byte[] mechanismType in mechanismTypeList)
@@ -228,6 +224,33 @@ namespace SMBLibrary.Authentication.GSSAPI
             ByteWriter.WriteByte(buffer, ref offset, (byte)DerEncodingTag.ByteArray);
             DerEncodingHelper.WriteLength(buffer, ref offset, mechanismListMIC.Length);
             ByteWriter.WriteBytes(buffer, ref offset, mechanismListMIC);
+        }
+
+        public static byte[] GetMechanismTypeListBytes(List<byte[]> mechanismTypeList)
+        {
+            int sequenceLength = GetMechanismTypeListSequenceLength(mechanismTypeList);
+            int sequenceLengthFieldSize = DerEncodingHelper.GetLengthFieldSize(sequenceLength);
+            int constructionLength = 1 + sequenceLengthFieldSize + sequenceLength;
+            byte[] buffer = new byte[constructionLength];
+            int offset = 0;
+            WriteMechanismTypeListSequence(buffer, ref offset, mechanismTypeList, sequenceLength);
+            return buffer;
+        }
+
+        private static int GetEncodedMechanismTypeListLength(List<byte[]> mechanismTypeList)
+        {
+            if (mechanismTypeList == null)
+            {
+                return 0;
+            }
+            else
+            {
+                int typeListSequenceLength = GetMechanismTypeListSequenceLength(mechanismTypeList);
+                int typeListSequenceLengthFieldSize = DerEncodingHelper.GetLengthFieldSize(typeListSequenceLength);
+                int typeListConstructionLength = 1 + typeListSequenceLengthFieldSize + typeListSequenceLength;
+                int typeListConstructionLengthFieldSize = DerEncodingHelper.GetLengthFieldSize(typeListConstructionLength);
+                return 1 + typeListConstructionLengthFieldSize + 1 + typeListSequenceLengthFieldSize + typeListSequenceLength;
+            }
         }
     }
 }
