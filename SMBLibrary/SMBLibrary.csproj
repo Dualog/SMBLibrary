@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFrameworks>net20;net40;netstandard2.0</TargetFrameworks>
+    <AssemblyName>SMBLibrary</AssemblyName>
+    <Version>1.5.3.4</Version>
+    <NoWarn>1573;1591</NoWarn>
     <RootNamespace>SMBLibrary</RootNamespace>
     <AssemblyName>SMBLibraryCore.Client</AssemblyName>
     <PackageId>SMBLibraryCore.Client</PackageId>
@@ -35,4 +39,21 @@
   <ItemGroup>
     <Folder Include="Properties\" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Buffers">
+      <Version>4.5.1</Version>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMBLibrary.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <Target Name="ILRepack" Condition="'$(Configuration)' == 'Release'" AfterTargets="AfterBuild">
+    <Exec Command="&quot;$(ProgramW6432)\ILRepack\ILRepack.exe&quot; /out=&quot;$(OutputPath)\SMBLibrary.dll&quot; &quot;$(OutputPath)\SMBLibrary.dll&quot; &quot;$(OutputPath)\Utilities.dll&quot;"></Exec>
+  </Target>
+
 </Project>
