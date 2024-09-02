@@ -197,14 +197,10 @@ namespace SMBLibrary.Client
             request.Dialects.Add(SMB2Dialect.SMB202);
             request.Dialects.Add(SMB2Dialect.SMB210);
             request.Dialects.Add(SMB2Dialect.SMB300);
-#if SMB302_CLIENT
             request.Dialects.Add(SMB2Dialect.SMB302);
-#endif
-#if SMB311_CLIENT
             request.Dialects.Add(SMB2Dialect.SMB311);
             request.NegotiateContextList = GetNegotiateContextList();
             m_preauthIntegrityHashValue = new byte[64];
-#endif
             await TrySendCommandAsync(request, cancellationToken);
             var command = WaitForCommand(request.MessageID);
 
