@@ -27,10 +27,10 @@ jobs:
       run: sed 's/GITHUB_TOKEN/${{ secrets.NUGET_TOKEN }}/g' .nuget.config > nuget.config
 
     - name: Build packages
-      run: dotnet build -c Release /p:PublicRelease=true
+      run: dotnet build -c Release /p:PublicRelease=true /p:DefineConstants=SMB302_CLIENT
 
     - name: Pack packages
-      run: dotnet pack -c Release /p:PublicRelease=true
+      run: dotnet pack -c Release /p:PublicRelease=true /p:DefineConstants=SMB302_CLIENT
       
     - name: Publish Package
       run: dotnet nuget push ./**/*.nupkg -k ${{ secrets.NUGET_TOKEN }} -s https://api.nuget.org/v3/index.json
